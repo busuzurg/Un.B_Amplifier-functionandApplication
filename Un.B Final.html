@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Un.B - Advanced Circuit Analyzer</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='20' fill='%23050505' stroke='%2300ff66' stroke-width='8'/%3E%3Ctext x='60' y='76' font-family='Arial, sans-serif' font-size='44' font-weight='900' fill='%2300ff66' text-anchor='middle'%3EUn.B%3C/text%3E%3C/svg%3E">
+
+    <style>
+        :root {
+            --bg-main: #050505;
+            --bg-panel: #111111;
+            --text: #e0e0e0;
+            --vplus: #2ecc71;  
+            --vminus: #3498db; 
+            --vout: #e74c3c;   
+            --border: #222;
+            --label: #f1c40f; 
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-main); color: var(--text); padding: 10px; overflow-x: hidden; }
+        
+        .header { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 5px 0 15px 0; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+        .header h2 { font-size: 1.1rem; margin: 0; color: #888; letter-spacing: 1px; font-weight: 600; text-transform: uppercase;}
+        
+        .brand-logo svg { height: 45px; filter: drop-shadow(0 0 6px rgba(0, 255, 102, 0.4)); }
+        
+        .container { display: grid; grid-template-columns: 280px 1fr; gap: 15px; max-width: 1600px; margin: 0 auto; }
+        
+        .panel { background-color: var(--bg-panel); padding: 12px; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.8); display: flex; flex-direction: column; }
+        h3 { margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 0.9em; margin-bottom: 8px;}
+        
+        .control-group { margin-bottom: 8px; width: 100%; }
+        label { display: block; margin-bottom: 2px; font-size: 0.7em; color: #aaa; font-weight: bold; text-transform: uppercase;}
+        select, input[type="number"], input[type="range"] { 
+            width: 100%; padding: 4px 6px; background: #000; color: #fff; 
+            border: 1px solid #444; border-radius: 3px; font-size: 11px; height: 24px;
+        }
+        
+        .freq-input-group { display: flex; gap: 4px; }
+        .freq-input-group input { flex: 2; }
+        .freq-input-group select { flex: 1; }
+
+        .code-editor { 
+            font-family: 'Courier New', Courier, monospace; width: 100%; height: 40px; 
+            background: #000; color: #0f0; border: 1px solid #444; padding: 6px; 
+            resize: vertical; font-size: 11px; border-radius: 3px;
+        }
+        
+        .btn { padding: 5px 10px; background: #333; color: white; border: 1px solid #555; border-radius: 3px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 0.8em; }
+        .btn-play { background: #27ae60; border-color: #2ecc71; }
+        .btn-play:hover { background: #2ecc71; }
+        .btn-action { background: #8e44ad; border-color: #9b59b6; }
+        .btn-action:hover { background: #9b59b6; }
+        
+        .timebase-bar { display: flex; justify-content: space-between; align-items: center; background: #080808; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border); }
+        .timebase-readout { font-family: 'Courier New', monospace; font-size: 0.9em; color: #f1c40f; font-weight: bold; }
+        .timebase-controls { display: flex; gap: 6px; }
+
+        canvas { width: 100%; height: 450px; background-color: #000; border-radius: 6px; border: 1px solid #333; display: block; box-shadow: inset 0 0 20px rgba(0,0,0,1); flex-shrink: 0;}
+        
+        .legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; margin-top: 10px; margin-bottom: 10px;}
+        .legend-item { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 0.75em; color: #aaa;}
+        .color-box { width: 10px; height: 10px; border-radius: 2px; }
+
+        .flex-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .flex-row > div { flex: 1; min-width: 60px; }
+
+        .live-viewer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;}
+        .stat-box { background: #080808; padding: 10px; border-radius: 4px; border-left: 3px solid; flex: 1 1 180px; display: flex; flex-direction: column; justify-content: center; border-top: 1px solid #222; border-right: 1px solid #222; border-bottom: 1px solid #222; min-height: 85px;}
+        .stat-label { font-size: 0.6em; color: #888; margin-bottom: 3px; text-transform: uppercase; font-weight: bold;}
+        .stat-main { font-size: 0.95em; font-weight: bold; color: #fff; margin-bottom: 1px;}
+        .stat-sub { font-size: 0.7em; color: #aaa; margin-bottom: 1px; }
+        .stat-freq { font-size: 0.75em; color: #3498db; font-family: 'Courier New', monospace; font-weight: bold; }
+
+        .schematic-panel { 
+            margin-top: 15px; background: #0a0a0a; padding: 15px; border-radius: 6px; 
+            border: 1px solid var(--border); text-align: center; flex-grow: 1; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        
+        .circuit-diagram { display: none; width: 100%; height: auto; max-height: 200px; }
+        
+        svg text.label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: bold; fill: var(--label); }
+        svg text.port { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: bold; }
+        svg text.sign { font-family: 'Segoe UI', Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #fff; }
+
+        @media (max-width: 1000px) {
+            .container { grid-template-columns: 1fr; } 
+            canvas { height: 300px; }
+            .timebase-bar { flex-direction: column; gap: 10px; }
+            .timebase-bar > div { flex: auto !important; justify-content: center; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand-logo">
+            <svg viewBox="0 0 140 50">
+                <rect width="130" height="40" x="5" y="5" rx="8" fill="#000" stroke="#00ff66" stroke-width="3"/>
+                <text x="70" y="34" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#00ff66" text-anchor="middle" letter-spacing="1">Un.B</text>
+            </svg>
+        </div>
+        <h2>High-Performance Circuit Analyzer</h2>
+    </div>
+
+    <!-- GLOBAL SVG DEFS -->
+    <svg style="display:none;">
+        <defs>
+            <!-- All components are strictly transparent mathematically mapped shapes -->
+            <g id="opamp">
+                <polygon points="0,0 0,60 50,30" fill="#111" stroke="#fff" stroke-width="2"/>
+                <text x="8" y="24" fill="#fff" font-size="16" font-weight="bold">-</text>
+                <text x="8" y="46" fill="#fff" font-weight="bold" font-size="16">+</text>
+            </g>
+            <g id="res">
+                <!-- Spans x=-15 to x=15 -->
+                <rect x="-15" y="-6" width="30" height="12" fill="#111" stroke="#fff" stroke-width="2"/>
+            </g>
+            <g id="res_v">
+                <!-- Spans y=-15 to y=15 -->
+                <rect x="-6" y="-15" width="12" height="30" fill="#111" stroke="#fff" stroke-width="2"/>
+            </g>
+            <g id="cap">
+                <!-- Spans x=-4 to x=4 -->
+                <line x1="-4" y1="-12" x2="-4" y2="12" stroke="#fff" stroke-width="2"/>
+                <line x1="4" y1="-12" x2="4" y2="12" stroke="#fff" stroke-width="2"/>
+            </g>
+            <g id="gnd">
+                <line x1="0" y1="0" x2="0" y2="10" stroke="#fff" stroke-width="2"/>
+                <line x1="-12" y1="10" x2="12" y2="10" stroke="#aaa" stroke-width="2"/>
+                <line x1="-8" y1="16" x2="8" y2="16" stroke="#aaa" stroke-width="2"/>
+                <line x1="-4" y1="22" x2="4" y2="22" stroke="#aaa" stroke-width="2"/>
+            </g>
+            <g id="dot">
+                <circle cx="0" cy="0" r="4" fill="#fff"/>
+            </g>
+        </defs>
+    </svg>
+
+    <div class="container">
+        <!-- LEFT PANEL: CONTROLS -->
+        <div class="panel">
+            <h3>1. Circuit Architecture</h3>
+            <div class="control-group">
+                <select id="circuitType" onchange="updateSchematic(); resetSim();">
+                    <option value="comparator">Comparator (Digital Switch)</option>
+                    <option value="schmitt">Inv. Schmitt Trigger (Hysteresis)</option>
+                    <option value="opamp_diff">Diff Amplifier (Linear Subtractor)</option>
+                    <option value="integrator">Integrator (Area Accumulation)</option>
+                    <option value="differentiator">Differentiator (Rate of Change)</option>
+                    <option value="inst_amp">Instrumentation Amp (Gain x10)</option>
+                </select>
+            </div>
+
+            <div class="control-group flex-row" style="align-items: flex-end;">
+                <div style="flex: 0 0 auto; display: flex; gap: 4px;">
+                    <button class="btn btn-play" onclick="togglePlay()" id="playBtn">Pause</button>
+                    <button class="btn" onclick="resetSim()">Reset</button>
+                </div>
+                <div>
+                    <label>Init Time</label>
+                    <input type="number" id="initialTime" value="0" step="any" onchange="setTime()">
+                </div>
+            </div>
+
+            <hr style="border-color: #222; margin: 12px 0;">
+
+            <h3>2. V+ Non-Inverting <span style="color:var(--vplus)">■</span></h3>
+            <div class="control-group">
+                <select id="vPlusType">
+                    <option value="sine">Sine Wave</option>
+                    <option value="square">Square Wave</option>
+                    <option value="triangle">Triangle Wave</option>
+                    <option value="dc">Constant DC</option>
+                    <option value="custom">Manual Code (JS)</option>
+                </select>
+            </div>
+            <div class="control-group flex-row">
+                <div><label>Amp (V)</label><input type="number" id="vPlusAmp" value="5" step="any"></div>
+                <div><label>Phase (°)</label><input type="number" id="vPlusPhase" value="0" step="any"></div>
+                <div><label>Duty (%)</label><input type="number" id="vPlusDuty" value="50" step="1" min="0" max="100"></div>
+            </div>
+            <div class="control-group">
+                <label>Frequency</label>
+                <div class="freq-input-group">
+                    <input type="number" id="vPlusFreq" value="1" step="any">
+                    <select id="vPlusUnit">
+                        <option value="1">Hz</option>
+                        <option value="1e3">kHz</option>
+                        <option value="1e6">MHz</option>
+                        <option value="1e9">GHz</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>DC Offset: <span id="vPlusDCVal" style="color:#aaa;">0V</span></label>
+                <input type="range" id="vPlusDC" min="-15" max="15" value="0" step="0.5" oninput="document.getElementById('vPlusDCVal').innerText = this.value + 'V'">
+            </div>
+            <div class="control-group">
+                <label>Custom JS Code `t`</label>
+                <textarea class="code-editor" id="vPlusCode">Math.sin(t * 3) * 5</textarea>
+            </div>
+
+            <hr style="border-color: #222; margin: 12px 0;">
+
+            <h3>3. V- Inverting <span style="color:var(--vminus)">■</span></h3>
+            <div class="control-group">
+                <select id="vMinusType">
+                    <option value="triangle">Triangle Wave</option>
+                    <option value="dc">Constant DC</option>
+                    <option value="sine">Sine Wave</option>
+                    <option value="square">Square Wave</option>
+                    <option value="custom">Manual Code (JS)</option>
+                </select>
+            </div>
+            <div class="control-group flex-row">
+                <div><label>Amp (V)</label><input type="number" id="vMinusAmp" value="5" step="any"></div>
+                <div><label>Phase (°)</label><input type="number" id="vMinusPhase" value="0" step="any"></div>
+                <div><label>Duty (%)</label><input type="number" id="vMinusDuty" value="50" step="1" min="0" max="100"></div>
+            </div>
+            <div class="control-group">
+                <label>Frequency</label>
+                <div class="freq-input-group">
+                    <input type="number" id="vMinusFreq" value="10" step="any">
+                    <select id="vMinusUnit">
+                        <option value="1">Hz</option>
+                        <option value="1e3">kHz</option>
+                        <option value="1e6">MHz</option>
+                        <option value="1e9">GHz</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>DC Offset: <span id="vMinusDCVal" style="color:#aaa;">0V</span></label>
+                <input type="range" id="vMinusDC" min="-15" max="15" value="0" step="0.5" oninput="document.getElementById('vMinusDCVal').innerText = this.value + 'V'">
+            </div>
+            <div class="control-group">
+                <label>Custom JS Code `t`</label>
+                <textarea class="code-editor" id="vMinusCode">Math.cos(t * 2) * 5</textarea>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: OSCILLOSCOPE -->
+        <div class="panel">
+            
+            <div class="timebase-bar">
+                <div class="timebase-readout" style="flex: 1;">Time/Div: <span id="timeSpanDisplay">3.00 s</span></div>
+                
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <label style="margin: 0; color: #aaa; font-weight: bold; font-size: 0.7em; text-transform: uppercase;">Flow Speed</label>
+                    <input type="range" id="animSpeed" min="0.1" max="4" value="1" step="0.1" style="width: 120px; margin: 0; height: 18px;">
+                </div>
+
+                <div class="timebase-controls" style="flex: 1; justify-content: flex-end;">
+                    <button class="btn btn-action" onclick="autoScale()">⚡ Auto-Sync Range</button>
+                    <button class="btn" onclick="zoom(2)">- Zoom Out</button>
+                    <button class="btn" onclick="zoom(0.5)">+ Zoom In</button>
+                </div>
+            </div>
+
+            <canvas id="oscCanvas"></canvas>
+            
+            <div class="legend">
+                <div class="legend-item"><div class="color-box" style="background:var(--vplus);"></div> V+ (Non-Inv)</div>
+                <div class="legend-item"><div class="color-box" style="background:var(--vminus);"></div> V- (Inv)</div>
+                <div class="legend-item"><div class="color-box" style="background:var(--vout);"></div> Output</div>
+            </div>
+
+            <!-- LIVE SIGNAL ANALYZER -->
+            <div class="live-viewer">
+                <div class="stat-box" style="border-color: var(--vplus);">
+                    <div class="stat-label">V+ Input Data</div>
+                    <div class="stat-main" id="statVplusMain">Waiting...</div>
+                    <div class="stat-sub" id="statVplusSub">-</div>
+                    <div class="stat-freq" id="statVplusFreq">Freq: 0 Hz</div>
+                </div>
+                <div class="stat-box" style="border-color: var(--vminus);">
+                    <div class="stat-label">V- Input Data</div>
+                    <div class="stat-main" id="statVminusMain">Waiting...</div>
+                    <div class="stat-sub" id="statVminusSub">-</div>
+                    <div class="stat-freq" id="statVminusFreq">Freq: 0 Hz</div>
+                </div>
+                <div class="stat-box" style="border-color: var(--vout);">
+                    <div class="stat-label">V_out Data</div>
+                    <div class="stat-main" id="statVoutMain">Waiting...</div>
+                    <div class="stat-sub" id="statVoutSub">-</div>
+                    <div class="stat-freq" id="statVoutFreq">Freq: 0 Hz</div>
+                </div>
+            </div>
+
+            <div class="schematic-panel">
+                <h3 style="color: #666; border: none; font-size: 0.75em; margin-bottom: 10px; text-transform: uppercase;">Active Internal Circuit Architecture</h3>
+                
+                <!-- 1. Comparator -->
+                <svg id="diag_comparator" class="circuit-diagram" viewBox="0 10 400 100" preserveAspectRatio="xMidYMid meet">
+                    <text x="10" y="50" class="port" fill="#3498db">V- In</text>
+                    <line x1="55" y1="50" x2="180" y2="50" stroke="#3498db" stroke-width="3"/>
+                    
+                    <text x="10" y="90" class="port" fill="#2ecc71">V+ In</text>
+                    <line x1="55" y1="70" x2="180" y2="70" stroke="#2ecc71" stroke-width="3"/>
+                    
+                    <use href="#opamp" x="180" y="30"/>
+                    
+                    <line x1="230" y1="60" x2="340" y2="60" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="290" y="50" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+                <!-- 2. Schmitt Trigger -->
+                <svg id="diag_schmitt" class="circuit-diagram" viewBox="0 10 400 140" preserveAspectRatio="xMidYMid meet">
+                    <text x="10" y="70" class="port" fill="#3498db">V- In</text>
+                    <line x1="55" y1="70" x2="180" y2="70" stroke="#3498db" stroke-width="3"/>
+                    
+                    <text x="10" y="110" class="port" fill="#2ecc71">V+ Bias</text>
+                    <line x1="65" y1="90" x2="95" y2="90" stroke="#2ecc71" stroke-width="3"/>
+                    
+                    <use href="#res" x="110" y="90"/>
+                    <text x="110" y="74" class="label" text-anchor="middle">R1</text>
+                    <line x1="125" y1="90" x2="180" y2="90" stroke="#fff" stroke-width="2"/>
+                    
+                    <use href="#opamp" x="180" y="50"/>
+                    
+                    <use href="#dot" x="160" y="90"/>
+                    <line x1="160" y1="90" x2="160" y2="130" stroke="#fff" stroke-width="2"/>
+                    <line x1="160" y1="130" x2="175" y2="130" stroke="#fff" stroke-width="2"/>
+                    
+                    <use href="#res" x="190" y="130"/>
+                    <text x="190" y="114" class="label" text-anchor="middle">R2</text>
+                    
+                    <line x1="205" y1="130" x2="260" y2="130" stroke="#fff" stroke-width="2"/>
+                    <line x1="260" y1="130" x2="260" y2="80" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="260" y="80"/>
+                    
+                    <line x1="230" y1="80" x2="340" y2="80" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="290" y="70" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+                <!-- 3. Diff Amp -->
+                <svg id="diag_opamp_diff" class="circuit-diagram" viewBox="0 -10 450 200" preserveAspectRatio="xMidYMid meet">
+                    <text x="5" y="70" class="port" fill="#3498db">V- In</text>
+                    <line x1="45" y1="70" x2="75" y2="70" stroke="#3498db" stroke-width="3"/>
+                    <use href="#res" x="90" y="70"/>
+                    <text x="90" y="52" class="label" text-anchor="middle">R1</text>
+                    <line x1="105" y1="70" x2="200" y2="70" stroke="#fff" stroke-width="2"/>
+                    
+                    <use href="#dot" x="160" y="70"/>
+                    <line x1="160" y1="70" x2="160" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="160" y1="30" x2="195" y2="30" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="210" y="30"/>
+                    <text x="210" y="14" class="label" text-anchor="middle">R2</text>
+                    <line x1="225" y1="30" x2="290" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="290" y1="30" x2="290" y2="80" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="290" y="80"/>
+
+                    <text x="5" y="110" class="port" fill="#2ecc71">V+ In</text>
+                    <line x1="45" y1="90" x2="75" y2="90" stroke="#2ecc71" stroke-width="3"/>
+                    <use href="#res" x="90" y="90"/>
+                    <text x="90" y="112" class="label" text-anchor="middle">R3</text>
+                    <line x1="105" y1="90" x2="200" y2="90" stroke="#fff" stroke-width="2"/>
+
+                    <use href="#dot" x="160" y="90"/>
+                    <line x1="160" y1="90" x2="160" y2="105" stroke="#fff" stroke-width="2"/>
+                    <use href="#res_v" x="160" y="120"/>
+                    <text x="174" y="136" class="label">R4</text>
+                    <line x1="160" y1="135" x2="160" y2="150" stroke="#fff" stroke-width="2"/>
+                    <use href="#gnd" x="160" y="150"/>
+
+                    <use href="#opamp" x="200" y="50"/>
+
+                    <line x1="250" y1="80" x2="380" y2="80" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="330" y="70" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+                <!-- 4. Integrator -->
+                <svg id="diag_integrator" class="circuit-diagram" viewBox="0 -10 450 140" preserveAspectRatio="xMidYMid meet">
+                    <text x="5" y="70" class="port" fill="#3498db">V- In</text>
+                    <line x1="45" y1="70" x2="95" y2="70" stroke="#3498db" stroke-width="3"/>
+                    <use href="#res" x="110" y="70"/>
+                    <text x="110" y="52" class="label" text-anchor="middle">R</text>
+                    <line x1="125" y1="70" x2="200" y2="70" stroke="#fff" stroke-width="2"/>
+                    
+                    <use href="#dot" x="170" y="70"/>
+                    <line x1="170" y1="70" x2="170" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="170" y1="30" x2="216" y2="30" stroke="#fff" stroke-width="2"/>
+                    <use href="#cap" x="220" y="30"/>
+                    <text x="220" y="10" class="label" text-anchor="middle">C</text>
+                    <line x1="224" y1="30" x2="290" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="290" y1="30" x2="290" y2="80" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="290" y="80"/>
+
+                    <text x="5" y="100" class="port" fill="#2ecc71">V+ Bias</text>
+                    <line x1="65" y1="90" x2="200" y2="90" stroke="#2ecc71" stroke-width="3"/>
+
+                    <use href="#opamp" x="200" y="50"/>
+
+                    <line x1="250" y1="80" x2="380" y2="80" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="330" y="70" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+                <!-- 5. Differentiator -->
+                <svg id="diag_differentiator" class="circuit-diagram" viewBox="0 -10 450 140" preserveAspectRatio="xMidYMid meet">
+                    <text x="5" y="70" class="port" fill="#3498db">V- In</text>
+                    <line x1="45" y1="70" x2="106" y2="70" stroke="#3498db" stroke-width="3"/>
+                    <use href="#cap" x="110" y="70"/>
+                    <text x="110" y="50" class="label" text-anchor="middle">C</text>
+                    <line x1="114" y1="70" x2="200" y2="70" stroke="#fff" stroke-width="2"/>
+                    
+                    <use href="#dot" x="170" y="70"/>
+                    <line x1="170" y1="70" x2="170" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="170" y1="30" x2="195" y2="30" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="210" y="30"/>
+                    <text x="210" y="12" class="label" text-anchor="middle">R</text>
+                    <line x1="225" y1="30" x2="290" y2="30" stroke="#fff" stroke-width="2"/>
+                    <line x1="290" y1="30" x2="290" y2="80" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="290" y="80"/>
+
+                    <text x="5" y="100" class="port" fill="#2ecc71">V+ Bias</text>
+                    <line x1="65" y1="90" x2="200" y2="90" stroke="#2ecc71" stroke-width="3"/>
+
+                    <use href="#opamp" x="200" y="50"/>
+
+                    <line x1="250" y1="80" x2="380" y2="80" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="330" y="70" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+                <!-- 6. Inst Amp -->
+                <svg id="diag_inst_amp" class="circuit-diagram" viewBox="-40 -20 580 280" preserveAspectRatio="xMidYMid meet">
+                    <!-- U1 -->
+                    <use href="#opamp" x="120" y="20"/>
+                    <text x="-35" y="50" class="port" fill="#2ecc71">V+ In</text>
+                    <line x1="10" y1="60" x2="120" y2="60" stroke="#2ecc71" stroke-width="3"/>
+                    
+                    <!-- U2 -->
+                    <use href="#opamp" x="120" y="160"/>
+                    <text x="-35" y="190" class="port" fill="#3498db">V- In</text>
+                    <line x1="10" y1="200" x2="120" y2="200" stroke="#3498db" stroke-width="3"/>
+
+                    <line x1="170" y1="50" x2="235" y2="50" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="180" y="50"/>
+                    <line x1="170" y1="190" x2="235" y2="190" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="180" y="190"/>
+
+                    <!-- U1 Feedback -->
+                    <line x1="180" y1="50" x2="180" y2="10" stroke="#fff" stroke-width="2"/>
+                    <line x1="180" y1="10" x2="101" y2="10" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="86" y="10"/>
+                    <text x="86" y="-6" class="label" text-anchor="middle">R_f1</text>
+                    <line x1="71" y1="10" x2="50" y2="10" stroke="#fff" stroke-width="2"/>
+                    <line x1="50" y1="10" x2="50" y2="40" stroke="#fff" stroke-width="2"/>
+                    <line x1="50" y1="40" x2="120" y2="40" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="80" y="40"/>
+
+                    <!-- U2 Feedback -->
+                    <line x1="180" y1="190" x2="180" y2="230" stroke="#fff" stroke-width="2"/>
+                    <line x1="180" y1="230" x2="101" y2="230" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="86" y="230"/>
+                    <text x="86" y="252" class="label" text-anchor="middle">R_f2</text>
+                    <line x1="71" y1="230" x2="50" y2="230" stroke="#fff" stroke-width="2"/>
+                    <line x1="50" y1="230" x2="50" y2="180" stroke="#fff" stroke-width="2"/>
+                    <line x1="50" y1="180" x2="120" y2="180" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="80" y="180"/>
+
+                    <!-- R_gain -->
+                    <line x1="80" y1="40" x2="80" y2="95" stroke="#fff" stroke-width="2"/>
+                    <use href="#res_v" x="80" y="110"/>
+                    <text x="65" y="115" class="label" text-anchor="end">R_gain</text>
+                    <line x1="80" y1="125" x2="80" y2="180" stroke="#fff" stroke-width="2"/>
+
+                    <!-- Diff Inputs -->
+                    <use href="#res" x="250" y="50"/>
+                    <text x="250" y="34" class="label" text-anchor="middle">R2</text>
+                    <line x1="265" y1="50" x2="330" y2="50" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="50" x2="330" y2="110" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="110" x2="360" y2="110" stroke="#fff" stroke-width="2"/>
+
+                    <use href="#res" x="250" y="190"/>
+                    <text x="250" y="174" class="label" text-anchor="middle">R3</text>
+                    <line x1="265" y1="190" x2="330" y2="190" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="190" x2="330" y2="130" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="130" x2="360" y2="130" stroke="#fff" stroke-width="2"/>
+
+                    <!-- U3 Diff Amp -->
+                    <use href="#opamp" x="360" y="90"/>
+
+                    <!-- R4 Feedback -->
+                    <use href="#dot" x="330" y="110"/>
+                    <line x1="330" y1="110" x2="330" y2="70" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="70" x2="365" y2="70" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="380" y="70"/>
+                    <text x="380" y="54" class="label" text-anchor="middle">R4</text>
+                    <line x1="395" y1="70" x2="450" y2="70" stroke="#fff" stroke-width="2"/>
+                    <line x1="450" y1="70" x2="450" y2="120" stroke="#fff" stroke-width="2"/>
+                    <use href="#dot" x="450" y="120"/>
+
+                    <!-- R5 GND -->
+                    <use href="#dot" x="330" y="130"/>
+                    <line x1="330" y1="130" x2="330" y2="190" stroke="#fff" stroke-width="2"/>
+                    <line x1="330" y1="190" x2="365" y2="190" stroke="#fff" stroke-width="2"/>
+                    <use href="#res" x="380" y="190"/>
+                    <text x="380" y="210" class="label" text-anchor="middle">R5</text>
+                    <line x1="395" y1="190" x2="430" y2="190" stroke="#fff" stroke-width="2"/>
+                    <line x1="430" y1="190" x2="430" y2="200" stroke="#fff" stroke-width="2"/>
+                    <use href="#gnd" x="430" y="200"/>
+
+                    <!-- Output -->
+                    <line x1="410" y1="120" x2="520" y2="120" stroke="#e74c3c" stroke-width="3"/>
+                    <text x="470" y="110" class="port" fill="#e74c3c">V_out</text>
+                </svg>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isPlaying = true;
+        let globalTime = 0; 
+        let timePerScreen = 3; 
+        const MAX_POINTS = 800; 
+        const V_SAT = 14; 
+        let historyArray = [];
+        let lastFrameTime = performance.now();
+
+        const canvas = document.getElementById('oscCanvas');
+        const ctx = canvas.getContext('2d');
+        let w, h;
+        
+        function resizeCanvas() {
+            w = canvas.clientWidth; h = canvas.clientHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = w * dpr; canvas.height = h * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function updateSchematic() {
+            document.querySelectorAll('.circuit-diagram').forEach(el => el.style.display = 'none');
+            const circuit = document.getElementById('circuitType').value;
+            const target = document.getElementById('diag_' + circuit);
+            if(target) target.style.display = 'block';
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playBtn').innerText = isPlaying ? "Pause" : "Play";
+            document.getElementById('playBtn').className = isPlaying ? "btn btn-pause" : "btn btn-play";
+            if(isPlaying) lastFrameTime = performance.now(); 
+            if(isPlaying) requestAnimationFrame(loop);
+        }
+
+        function setTime() { 
+            let val = parseFloat(document.getElementById('initialTime').value);
+            globalTime = isNaN(val) ? 0 : val; 
+        }
+        
+        function resetSim() { 
+            globalTime = 0; document.getElementById('initialTime').value = 0; 
+            timePerScreen = 3; updateTimeDisplay(); 
+        }
+
+        function zoom(multiplier) {
+            timePerScreen *= multiplier;
+            timePerScreen = Math.max(1e-12, Math.min(10, timePerScreen));
+            updateTimeDisplay();
+        }
+
+        function updateTimeDisplay() {
+            let display = "";
+            if(timePerScreen >= 1) display = timePerScreen.toFixed(2) + " s";
+            else if (timePerScreen >= 1e-3) display = (timePerScreen * 1e3).toFixed(2) + " ms";
+            else if (timePerScreen >= 1e-6) display = (timePerScreen * 1e6).toFixed(2) + " μs";
+            else if (timePerScreen >= 1e-9) display = (timePerScreen * 1e9).toFixed(2) + " ns";
+            else display = (timePerScreen * 1e12).toFixed(2) + " ps";
+            document.getElementById('timeSpanDisplay').innerText = display;
+        }
+
+        function formatFreq(freq) {
+            if(freq === 0 || isNaN(freq)) return "0 Hz";
+            if(freq >= 1e9) return (freq / 1e9).toFixed(2) + " GHz";
+            if(freq >= 1e6) return (freq / 1e6).toFixed(2) + " MHz";
+            if(freq >= 1e3) return (freq / 1e3).toFixed(2) + " kHz";
+            return freq.toFixed(2) + " Hz";
+        }
+
+        function autoScale() {
+            let fpVal = parseFloat(document.getElementById('vPlusFreq').value); if(isNaN(fpVal)) fpVal = 1;
+            let fpUnit = parseFloat(document.getElementById('vPlusUnit').value); if(isNaN(fpUnit)) fpUnit = 1;
+            let fmVal = parseFloat(document.getElementById('vMinusFreq').value); if(isNaN(fmVal)) fmVal = 1;
+            let fmUnit = parseFloat(document.getElementById('vMinusUnit').value); if(isNaN(fmUnit)) fmUnit = 1;
+
+            let fP = fpVal * fpUnit;
+            let fM = fmVal * fmUnit;
+            
+            let typeP = document.getElementById('vPlusType').value;
+            let typeM = document.getElementById('vMinusType').value;
+            if (typeP === 'dc' || typeP === 'custom') fP = Infinity;
+            if (typeM === 'dc' || typeM === 'custom') fM = Infinity;
+
+            let minFreq = Math.min(fP, fM);
+            if (!isNaN(minFreq) && minFreq > 0 && minFreq !== Infinity) { 
+                timePerScreen = 3 / minFreq; 
+            } else { 
+                timePerScreen = 3; 
+            }
+            updateTimeDisplay();
+        }
+
+        function computePhysicsFrame(deltaMs) {
+            historyArray = [];
+            
+            const circuit = document.getElementById('circuitType').value;
+            
+            const pType = document.getElementById('vPlusType').value;
+            let pAmp = parseFloat(document.getElementById('vPlusAmp').value); if(isNaN(pAmp)) pAmp = 0;
+            let pFreq = (parseFloat(document.getElementById('vPlusFreq').value)||1) * (parseFloat(document.getElementById('vPlusUnit').value)||1);
+            let pPhase = (parseFloat(document.getElementById('vPlusPhase').value)||0) * (Math.PI / 180);
+            let pDuty = parseFloat(document.getElementById('vPlusDuty').value); if(isNaN(pDuty)) pDuty = 50;
+            pDuty = Math.max(0.01, Math.min(99.99, pDuty)) / 100;
+            let pDC = parseFloat(document.getElementById('vPlusDC').value); if(isNaN(pDC)) pDC = 0;
+            const pCode = document.getElementById('vPlusCode').value;
+
+            const mType = document.getElementById('vMinusType').value;
+            let mAmp = parseFloat(document.getElementById('vMinusAmp').value); if(isNaN(mAmp)) mAmp = 0;
+            let mFreq = (parseFloat(document.getElementById('vMinusFreq').value)||1) * (parseFloat(document.getElementById('vMinusUnit').value)||1);
+            let mPhase = (parseFloat(document.getElementById('vMinusPhase').value)||0) * (Math.PI / 180);
+            let mDuty = parseFloat(document.getElementById('vMinusDuty').value); if(isNaN(mDuty)) mDuty = 50;
+            mDuty = Math.max(0.01, Math.min(99.99, mDuty)) / 100;
+            let mDC = parseFloat(document.getElementById('vMinusDC').value); if(isNaN(mDC)) mDC = 0;
+            const mCode = document.getElementById('vMinusCode').value;
+
+            let pFunc = null, mFunc = null;
+            if(pType === 'custom') { try { pFunc = new Function('t', 'return (' + pCode + ');'); } catch(e){} }
+            if(mType === 'custom') { try { mFunc = new Function('t', 'return (' + mCode + ');'); } catch(e){} }
+
+            if(isNaN(timePerScreen) || timePerScreen <= 0) timePerScreen = 3;
+            let dt = timePerScreen / MAX_POINTS;
+            
+            let intVal = 0; let prevDiff = 0; let currentVoutSchmitt = 0;
+            if (isNaN(globalTime) || !isFinite(globalTime)) globalTime = 0;
+            let t_sim = globalTime;
+
+            for (let i = 0; i < MAX_POINTS; i++) {
+                
+                let vPlus = pDC;
+                if(pType !== 'dc') {
+                    let cPhase = ((t_sim * pFreq) % 1.0) * Math.PI * 2 + pPhase;
+                    let normPhase = (((t_sim * pFreq) + pPhase / (Math.PI * 2)) % 1.0 + 1.0) % 1.0;
+                    if(pType === 'sine') vPlus += pAmp * Math.sin(cPhase);
+                    else if(pType === 'square') vPlus += pAmp * (normPhase < pDuty ? 1 : -1);
+                    else if(pType === 'triangle') {
+                        if (normPhase < pDuty) vPlus += pAmp * ((normPhase / pDuty) * 2 - 1);
+                        else vPlus += pAmp * (1 - ((normPhase - pDuty) / (1 - pDuty)) * 2);
+                    }
+                    else if(pType === 'custom' && pFunc) { let res=pFunc(t_sim); if(!isNaN(res)) vPlus=res; }
+                }
+
+                let vMinus = mDC;
+                if(mType !== 'dc') {
+                    let cPhase = ((t_sim * mFreq) % 1.0) * Math.PI * 2 + mPhase;
+                    let normPhase = (((t_sim * mFreq) + mPhase / (Math.PI * 2)) % 1.0 + 1.0) % 1.0;
+                    if(mType === 'sine') vMinus += mAmp * Math.sin(cPhase);
+                    else if(mType === 'square') vMinus += mAmp * (normPhase < mDuty ? 1 : -1);
+                    else if(mType === 'triangle') {
+                        if (normPhase < mDuty) vMinus += mAmp * ((normPhase / mDuty) * 2 - 1);
+                        else vMinus += mAmp * (1 - ((normPhase - mDuty) / (1 - mDuty)) * 2);
+                    }
+                    else if(mType === 'custom' && mFunc) { let res=mFunc(t_sim); if(!isNaN(res)) vMinus=res; }
+                }
+
+                let vOut = 0;
+                let diff = vPlus - vMinus;
+                if(isNaN(diff)) diff = 0;
+
+                if (circuit === 'comparator') vOut = (vPlus > vMinus) ? V_SAT : -V_SAT;
+                else if (circuit === 'schmitt') {
+                    let threshold = vPlus + (currentVoutSchmitt * 0.3);
+                    if (vMinus > threshold) currentVoutSchmitt = -V_SAT;
+                    else if (vMinus < threshold) currentVoutSchmitt = V_SAT;
+                    vOut = currentVoutSchmitt;
+                } 
+                else if (circuit === 'opamp_diff') vOut = diff * 2;
+                else if (circuit === 'inst_amp') vOut = diff * 10;
+                else if (circuit === 'integrator') {
+                    intVal += (diff * (1 / (pFreq || 1))) * dt * 1000; 
+                    vOut = intVal;
+                } 
+                else if (circuit === 'differentiator') {
+                    vOut = ((diff - prevDiff) / dt) * (timePerScreen * 0.05); 
+                    prevDiff = diff;
+                }
+
+                if (isNaN(vOut) || !isFinite(vOut)) vOut = 0;
+                vOut = Math.max(-V_SAT, Math.min(V_SAT, vOut));
+                historyArray.push({ vp: vPlus, vm: vMinus, vout: vOut });
+                t_sim += dt;
+            }
+
+            if (isPlaying) {
+                let speedMult = parseFloat(document.getElementById('animSpeed').value);
+                if(isNaN(speedMult)) speedMult = 1;
+                globalTime += (timePerScreen * 0.0003 * deltaMs * speedMult); 
+            }
+        }
+
+        function analyzeSignal(key) {
+            if (historyArray.length < 10) return { main: "Waiting...", sub: "-", freq: "Freq: 0 Hz" };
+            
+            let maxV = -Infinity, minV = Infinity, sumV = 0;
+            for (let i = 0; i < historyArray.length; i++) {
+                let v = historyArray[i][key];
+                if (v > maxV) maxV = v;
+                if (v < minV) minV = v;
+                sumV += v;
+            }
+            
+            let peakToPeak = maxV - minV;
+            let dcOffset = sumV / historyArray.length;
+
+            if (isNaN(peakToPeak) || peakToPeak < 0.2) return { main: "Constant DC", sub: `Level: ${(dcOffset||0).toFixed(2)}V`, freq: "Freq: 0 Hz" };
+
+            let sumSqAc = 0, turnarounds = 0, positiveCrossings = 0, highTime = 0;
+            let midPoint = minV + (peakToPeak / 2);
+
+            for (let i = 1; i < historyArray.length - 1; i++) {
+                let v = historyArray[i][key];
+                let vAc = v - dcOffset;
+                sumSqAc += vAc * vAc;
+                
+                if (v > midPoint) highTime++;
+                
+                let prevSlope = v - historyArray[i-1][key];
+                let nextSlope = historyArray[i+1][key] - v;
+                if (prevSlope * nextSlope < 0 && Math.abs(prevSlope) > 0.05) turnarounds++;
+
+                let prevVal = historyArray[i-1][key] - dcOffset;
+                if (prevVal <= 0 && vAc > 0) positiveCrossings++;
+            }
+
+            let dutyCycle = (highTime / historyArray.length) * 100;
+            let calculatedFreq = positiveCrossings / timePerScreen;
+            let acRms = Math.sqrt(sumSqAc / (historyArray.length - 2));
+            let amplitude = peakToPeak / 2;
+            let crestFactor = amplitude / (acRms === 0 ? 1 : acRms);
+            
+            let shape = "Complex Wave";
+            if (crestFactor < 1.25) shape = "Square Wave";
+            else if (crestFactor >= 1.25 && crestFactor < 1.55) shape = "Sine Wave";
+            else if (crestFactor >= 1.55 && crestFactor < 1.85) shape = "Triangle Wave";
+            else if (crestFactor >= 1.85) shape = "Pulse/Spike";
+
+            let quality = "Pure Signal";
+            if (turnarounds > positiveCrossings * 3 + 5) quality = "Noisy/Modulated";
+
+            return { 
+                main: `AC ${shape}`, 
+                sub: `Duty: ${dutyCycle.toFixed(1)}% | ${peakToPeak.toFixed(1)}V P-P`,
+                freq: `Detect Freq: ${formatFreq(calculatedFreq)}`
+            };
+        }
+
+        let lastAnalysisTime = 0;
+        function updateLiveStats() {
+            let now = Date.now();
+            if (now - lastAnalysisTime < 250) return; 
+            lastAnalysisTime = now;
+
+            const statP = analyzeSignal('vp');
+            document.getElementById('statVplusMain').innerText = statP.main;
+            document.getElementById('statVplusSub').innerText = statP.sub;
+            document.getElementById('statVplusFreq').innerText = statP.freq;
+
+            const statM = analyzeSignal('vm');
+            document.getElementById('statVminusMain').innerText = statM.main;
+            document.getElementById('statVminusSub').innerText = statM.sub;
+            document.getElementById('statVminusFreq').innerText = statM.freq;
+
+            const statO = analyzeSignal('vout');
+            document.getElementById('statVoutMain').innerText = statO.main;
+            document.getElementById('statVoutSub').innerText = statO.sub;
+            document.getElementById('statVoutFreq').innerText = statO.freq;
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, w, h);
+            ctx.lineWidth = 1;
+            for(let i=0; i<10; i++) {
+                ctx.strokeStyle = i === 5 ? '#333' : '#111'; 
+                ctx.beginPath(); ctx.moveTo(0, i * (h/10)); ctx.lineTo(w, i * (h/10)); ctx.stroke();
+            }
+            ctx.fillStyle = '#555'; ctx.font = '10px sans-serif';
+            ctx.fillText("+15V", 5, 12); ctx.fillText("0V", 5, h/2 - 4); ctx.fillText("-15V", 5, h - 4);
+        }
+
+        function drawWaveform(key, color, thickness) {
+            if(historyArray.length === 0) return;
+            ctx.strokeStyle = color; ctx.lineWidth = thickness; ctx.beginPath();
+            for (let i = 0; i < historyArray.length; i++) {
+                const x = (i / MAX_POINTS) * w;
+                const voltage = historyArray[i][key];
+                const y = (h / 2) - (voltage / 15) * (h / 2);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function loop() {
+            let now = performance.now();
+            let deltaMs = now - lastFrameTime;
+            lastFrameTime = now;
+            
+            if (deltaMs > 100) deltaMs = 16.6; 
+
+            if(isPlaying) {
+                try {
+                    computePhysicsFrame(deltaMs);
+                    drawGrid();
+                    drawWaveform('vm', '#3498db', 1.5); 
+                    drawWaveform('vp', '#2ecc71', 1.5); 
+                    drawWaveform('vout', '#e74c3c', 1.5); 
+                    updateLiveStats();
+                } catch(e) { console.error("Engine Crash", e); }
+                requestAnimationFrame(loop);
+            }
+        }
+
+        updateSchematic();
+        updateTimeDisplay();
+        loop();
+    </script>
+</body>
+</html>
